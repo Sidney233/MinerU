@@ -1,4 +1,3 @@
 mkdocs
-mkdocs-static-i18n
 markdown-gfm-admonition
 mkdocs-video
