@@ -2,7 +2,7 @@
 
 If your question is not listed, try using [DeepWiki](https://deepwiki.com/opendatalab/MinerU)'s AI assistant for common issues.
 
-For unresolved problems, join our [Discord](https://discord.gg/Tdedn9GTXq) or [WeChat](http://mineru.space/s/V85Yl) community for support.
+For unresolved problems, join our [Discord](https://discord.gg/Tdedn9GTXq) or [WeChat](https://mineru.net/community-portal/?aliasId=3c430f94) community for support.
 
 ??? question "Encountered the error `ImportError: libGL.so.1: cannot open shared object file: No such file or directory` in Ubuntu 22.04 on WSL2"
 
@@ -13,18 +13,6 @@ For unresolved problems, join our [Discord](https://discord.gg/Tdedn9GTXq) or [W
     ```
     
     Reference: [#388](https://github.com/opendatalab/MinerU/issues/388)
-
-
-??? question "Error when installing MinerU on CentOS 7 or Ubuntu 18: `ERROR: Failed building wheel for simsimd`"
-
-    The new version of albumentations (1.4.21) introduces a dependency on simsimd. Since the pre-built package of simsimd for Linux requires a glibc version greater than or equal to 2.28, this causes installation issues on some Linux distributions released before 2019. You can resolve this issue by using the following command:
-    ```
-    conda create -n mineru python=3.11 -y
-    conda activate mineru
-    pip install -U "mineru[pipeline_old_linux]"
-    ```
-    
-    Reference: [#1004](https://github.com/opendatalab/MinerU/issues/1004)
 
 
 ??? question "Missing text information in parsing results when installing and using on Linux systems."
