@@ -1,5 +1,7 @@
 # Quick Start
 
+Document parsing is a difficult and complex task. In scenarios such as complex layouts, scanned pages, and handwritten content, the parsing results may fall short of expectations. We recommend trying the online demo first to evaluate MinerU's parsing quality and suitability before choosing an appropriate deployment method based on your actual needs.
+If you have **document** samples with unsatisfactory parsing results, feel free to share them in an [issue](https://github.com/opendatalab/MinerU/issues). We will continue improving the parsing capabilities.
 If you encounter any installation issues, please check the [FAQ](../faq/index.md) first.
 
 ## Online Experience
@@ -27,41 +29,77 @@ A WebUI developed based on Gradio, with a simple interface and only core parsing
 > In non-mainstream environments, due to the diversity of hardware and software configurations, as well as compatibility issues with third-party dependencies, we cannot guarantee 100% usability of the project. Therefore, for users who wish to use this project in non-recommended environments, we suggest carefully reading the documentation and FAQ first, as most issues have corresponding solutions in the FAQ. Additionally, we encourage community feedback on issues so that we can gradually expand our support range.
 
 <table border="1">
+  <thead>
     <tr>
-        <td>Parsing Backend</td>
-        <td>pipeline</td>
-        <td>vlm-transformers</td>
-        <td>vlm-vllm</td>
+      <th rowspan="2" style="text-align:center; vertical-align:middle;">Parsing Backend</th>
+      <th rowspan="2" style="text-align:center; vertical-align:middle;">pipeline</th>
+      <th colspan="2" style="text-align:center;">*-auto-engine</th>
+      <th colspan="2" style="text-align:center;">*-http-client</th>
     </tr>
     <tr>
-        <td>Operating System</td>
-        <td>Linux / Windows / macOS</td>
-        <td>Linux / Windows</td>
-        <td>Linux / Windows (via WSL2)</td>
+      <th>hybrid</th>
+      <th>vlm</th>
+      <th>hybrid</th>
+      <th>vlm</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Backend Features</th>
+      <td >Good Compatibility</td>
+      <td colspan="2">High Hardware Requirements</td>
+      <td colspan="2">For OpenAI Compatible Servers<sup>2</sup></td>
+    </tr> 
+    <tr>
+      <th>Accuracy<sup>1</sup></th>
+      <td style="text-align:center;">85+</td>
+      <td colspan="4" style="text-align:center;">95+</td>
     </tr>
     <tr>
-        <td>CPU Inference Support</td>
-        <td>✅</td>
-        <td colspan="2">❌</td>
+      <th>Operating System</th>
+      <td colspan="5" style="text-align:center;">Linux<sup>3</sup> / Windows<sup>4</sup> / macOS<sup>5</sup></td>
     </tr>
     <tr>
-        <td>GPU Requirements</td>
-        <td>Turing architecture and later, 6GB+ VRAM or Apple Silicon</td>
-        <td colspan="2">Turing architecture and later, 8GB+ VRAM</td>
+      <th>Pure CPU Support</th>
+      <td style="text-align:center;">✅</td>
+      <td colspan="2" style="text-align:center;">❌</td>
+      <td colspan="2" style="text-align:center;">✅</td>
+    </tr>
+        <tr>
+      <th>GPU Acceleration</th>
+      <td colspan="4" style="text-align:center;">Volta and later architecture GPUs or Apple Silicon</td>
+      <td rowspan="2" style="text-align:center; vertical-align:middle;">Not Required</td>
     </tr>
     <tr>
-        <td>Memory Requirements</td>
-        <td colspan="3">Minimum 16GB+, recommended 32GB+</td>
+      <th>Min VRAM</th>
+      <td style="text-align:center;">4GB</td>
+      <td style="text-align:center;">8GB</td>
+      <td style="text-align:center;">8GB</td>
+      <td style="text-align:center;">2GB</td>
     </tr>
     <tr>
-        <td>Disk Space Requirements</td>
-        <td colspan="3">20GB+, SSD recommended</td>
+      <th>RAM</th>
+      <td colspan="3" style="text-align:center;">Min 16GB+, Recommended 32GB+</td>
+      <td colspan="2" style="text-align:center;">16GB</td>
     </tr>
     <tr>
-        <td>Python Version</td>
-        <td colspan="3">3.10-3.13</td>
+      <th>Disk Space</th>
+      <td colspan="3" style="text-align:center;">20GB+, SSD Recommended</td>
+      <td colspan="2" style="text-align:center;">2GB</td>
     </tr>
+    <tr>
+      <th>Python Version</th>
+      <td colspan="5" style="text-align:center;">3.10-3.13</td>
+    </tr>
+  </tbody>
 </table>
+
+<sup>1</sup> Accuracy metrics are the End-to-End Evaluation Overall scores from OmniDocBench (v1.6), based on the latest version of `MinerU`.  
+<sup>2</sup> Servers compatible with OpenAI API, such as local model servers or remote model services deployed via inference frameworks like `vLLM`/`SGLang`/`LMDeploy`.  
+<sup>3</sup> Linux only supports distributions from 2019 and later.  
+<sup>4</sup> Since the key dependency `ray` does not support Python 3.13 on Windows, only versions 3.10~3.12 are supported.  
+<sup>5</sup> macOS requires version 14.0 or later.
+
 
 ### Install MinerU
 
@@ -69,33 +107,45 @@ A WebUI developed based on Gradio, with a simple interface and only core parsing
 ```bash
 pip install --upgrade pip
 pip install uv
-uv pip install -U "mineru[core]"
+uv pip install -U "mineru[all]"
 ```
 
 #### Install MinerU from source code
 ```bash
 git clone https://github.com/opendatalab/MinerU.git
 cd MinerU
-uv pip install -e .[core]
+uv pip install -e .[all]
 ```
 
 > [!TIP]
-> `mineru[core]` includes all core features except `vllm` acceleration, compatible with Windows / Linux / macOS systems, suitable for most users.
-> If you need to use `vllm` acceleration for VLM model inference or install a lightweight client on edge devices, please refer to the documentation [Extension Modules Installation Guide](./extension_modules.md).
+> - `mineru[all]` includes all core features, compatible with Windows / Linux / macOS systems, suitable for most users.
+> - If CUDA acceleration is unavailable after installing on Windows, see the [Windows CUDA acceleration FAQ](../faq/index.md#windows-cuda-acceleration).
+> - If you need to specify the inference framework for the VLM model, or only intend to install a lightweight client on an edge device, please refer to the documentation [Extension Modules Installation Guide](https://opendatalab.github.io/MinerU/quick_start/extension_modules/).
 
 ---
  
 #### Deploy MinerU using Docker
 MinerU provides a convenient Docker deployment method, which helps quickly set up the environment and solve some tricky environment compatibility issues.
+
+> [!TIP]
+> - Docker deployment is only supported on Linux and Windows environments with WSL2 support;
+> - macOS users should refer to the two installation methods above for installation instead of using Docker deployment.
+
 You can get the [Docker Deployment Instructions](./docker_deployment.md) in the documentation.
 
 ---
 
 ### Using MinerU
 
-The simplest command line invocation is:
+If your device meets the GPU acceleration requirements in the table above, you can use a simple command line for document parsing:
 ```bash
 mineru -p <input_path> -o <output_path>
 ```
+If your device does not meet the GPU acceleration requirements, you can specify the backend as `pipeline` to run in a pure CPU environment:
+```bash
+mineru -p <input_path> -o <output_path> -b pipeline
+```
 
-You can use MinerU for PDF parsing through various methods such as command line, API, and WebUI. For detailed instructions, please refer to the [Usage Guide](../usage/index.md).
+`mineru` currently supports local `PDF`, image, `DOCX`, `PPTX`, and `XLSX` file or directory inputs.
+
+You can use MinerU for document parsing through the CLI, API, WebUI. For detailed instructions, please refer to the [Usage Guide](../usage/index.md).

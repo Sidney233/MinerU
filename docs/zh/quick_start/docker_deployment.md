@@ -2,25 +2,25 @@
 
 MinerU提供了便捷的docker部署方式，这有助于快速搭建环境并解决一些棘手的环境兼容问题。
 
+> [!WARNING]
+> - Docker 部署仅适用于 Linux，以及支持 WSL2 的 Windows 环境。
+> - 请不要在 macOS 上使用 Docker 部署 MinerU。由于 Docker 环境下无法调用 macOS 上的 MPS 和 MLX 加速能力，Apple Silicon 设备无法通过该方案获得预期加速效果。
+
 ## 使用 Dockerfile 构建镜像
 
 ```bash
 wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/china/Dockerfile
-docker build -t mineru-vllm:latest -f Dockerfile .
+docker build -t mineru:latest -f Dockerfile .
 ```
-
-> [!TIP]
-> [Dockerfile](https://github.com/opendatalab/MinerU/blob/master/docker/china/Dockerfile)默认使用`vllm/vllm-openai:v0.10.1.1`作为基础镜像，
-> 该版本的vLLM v1 engine对显卡型号支持有限，如您无法在Turing及更早架构的显卡上使用vLLM加速推理，可通过更改基础镜像为`vllm/vllm-openai:v0.10.2`来解决该问题。
 
 ## Docker说明
 
-Mineru的docker使用了`vllm/vllm-openai`作为基础镜像，因此在docker中默认集成了`vllm`推理加速框架和必需的依赖环境。因此在满足条件的设备上，您可以直接使用`vllm`加速VLM模型推理。
+Mineru的docker使用了`vllm/vllm-openai`作为基础镜像，因此在docker中默认集成了`vllm`推理加速框架和必需的依赖环境。当前国内 Dockerfile 默认使用`docker.m.daocloud.io/vllm/vllm-openai:v0.21.0`，适用于 CUDA 13.0 兼容环境；如果您的环境需要 CUDA 12.9 兼容镜像，请将 Dockerfile 顶部的默认`FROM`注释掉，并启用注释中的`docker.m.daocloud.io/vllm/vllm-openai:v0.21.0-cu129`基础镜像。因此在满足条件的设备上，您可以直接使用`vllm`加速VLM模型推理。
 > [!NOTE]
 > 使用`vllm`加速VLM模型推理需要满足的条件是：
 > 
-> - 设备包含Turing及以后架构的显卡，且可用显存大于等于8G。
-> - 物理机的显卡驱动应支持CUDA 12.8或更高版本，可通过`nvidia-smi`命令检查驱动版本。
+> - 设备包含Volta及以后架构的显卡，且可用显存大于等于8G。
+> - 物理机的显卡驱动应支持所选基础镜像对应的 CUDA 运行时版本：默认`v0.21.0`需要 CUDA 13.0 兼容驱动，`v0.21.0-cu129`需要 CUDA 12.9 兼容驱动。可通过`nvidia-smi`命令检查驱动版本。
 > - docker中能够访问物理机的显卡设备。
 
 
@@ -29,9 +29,9 @@ Mineru的docker使用了`vllm/vllm-openai`作为基础镜像，因此在docker�
 ```bash
 docker run --gpus all \
   --shm-size 32g \
-  -p 30000:30000 -p 7860:7860 -p 8000:8000 \
+  -p 30000:30000 -p 7860:7860 -p 8000:8000 -p 8002:8002 \
   --ipc=host \
-  -it mineru-vllm:latest \
+  -it mineru:latest \
   /bin/bash
 ```
 
@@ -50,17 +50,17 @@ wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/compose.yaml
 >  
 >- `compose.yaml`文件中包含了MinerU的多个服务配置，您可以根据需要选择启动特定的服务。
 >- 不同的服务可能会有额外的参数配置，您可以在`compose.yaml`文件中查看并编辑。
->- 由于`vllm`推理加速框架预分配显存的特性，您可能无法在同一台机器上同时运行多个`vllm`服务，因此请确保在启动`vlm-vllm-server`服务或使用`vlm-vllm-engine`后端时，其他可能使用显存的服务已停止。
+>- 由于`vllm`推理加速框架预分配显存的特性，您可能无法在同一台机器上同时运行多个`vllm`服务，因此请确保在启动`vlm-openai-server`服务或使用`vlm-vllm-engine`后端时，其他可能使用显存的服务已停止。
 
 ---
 
-### 启动 vllm-server 服务
-并通过`vlm-http-client`后端连接`vllm-server`
+### 启动 openai兼容接口 服务
+并通过`vlm-http-client`后端连接`openai-server`
   ```bash
-  docker compose -f compose.yaml --profile vllm-server up -d
+  docker compose -f compose.yaml --profile openai-server up -d
   ```
   >[!TIP]
-  >在另一个终端中通过http client连接vllm server（只需cpu与网络，不需要vllm环境）
+  >在另一个终端中通过http client连接openai server（只需cpu与网络，不需要vllm环境）
   > ```bash
   > mineru -p <input_path> -o <output_path> -b vlm-http-client -u http://<server_ip>:30000
   > ```
@@ -76,6 +76,17 @@ wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/compose.yaml
 
 ---
 
+### 启动 MinerU Router 服务
+  ```bash
+  docker compose -f compose.yaml --profile router up -d
+  ```
+  >[!TIP]
+  >
+  >- 默认配置会以 `--local-gpus auto` 模式在容器内自动拉起本地 worker，并通过 `http://<server_ip>:8002/docs` 暴露统一入口。
+  >- 如果您希望聚合已有的 `mineru-api` 服务而不是启动本地 worker，可直接参考 `compose.yaml` 中 `mineru-router` 服务下的注释示例，改为使用 `--upstream-url`。
+
+---
+
 ### 启动 Gradio WebUI 服务
   ```bash
   docker compose -f compose.yaml --profile gradio up -d
@@ -83,4 +94,3 @@ wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/compose.yaml
   >[!TIP]
   > 
   >- 在浏览器中访问 `http://<server_ip>:7860` 使用 Gradio WebUI。
-  >- 访问 `http://<server_ip>:7860/?view=api` 使用 Gradio API。

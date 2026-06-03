@@ -1,117 +1,147 @@
-## 在C500+MACA上部署并使用Mineru
-
-### 获取MACA镜像，包含torch-maca,maca,sglang-maca
-
-镜像获取地址：https://developer.metax-tech.com/softnova/docker ,
-选择maca-c500-pytorch:2.33.0.6-ubuntu22.04-amd64
-
-若在docker上部署镜像则需要启动GPU设备访问
-```bash
-docker run --device=/dev/dri --device=/dev/mxcd....
+## 1. 测试平台
+以下为本指南测试使用的平台信息，供参考：
+```
+os: Ubuntu 22.04   
+cpu: INTEL x86_64
+gpu: C500  
+driver: 2.12.13
+docker: 28.1.1
 ```
 
-#### 注意事项
+## 2. 环境准备
 
-由于此镜像默认开启TORCH_ALLOW_TF32_CUBLAS_OVERRIDE，会导致backed:vlm-transformers推理结果错误
+>[!NOTE]
+>maca加速卡支持使用`vllm`或`lmdeploy`进行VLM模型推理加速。请根据实际需求选择安装和使用其中之一:
 
-```bash
-unset TORCH_ALLOW_TF32_CUBLAS_OVERRIDE
-```
+### 2.1 使用metax官方镜像作为基础镜像构建vllm环境镜像
 
-### 安装MinerU
+1. 从metax官方仓库拉取基础镜像
+    - 1.1 镜像获取地址：[https://developer.metax-tech.com/softnova/docker](https://developer.metax-tech.com/softnova/docker)  
+    - 1.2 在镜像网站选择`AI`分类，软件包类型选择`vllm`，操作系统选择`ubuntu` 
+    - 1.3 找到`vllm:maca.ai3.1.0.7-torch2.6-py310-ubuntu22.04-amd64`镜像，复制拉取命令并在本地终端执行
+2. 使用 Dockerfile 构建镜像 （vllm）
+    ```bash
+    wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/china/maca.Dockerfile
+    docker build --network=host -t mineru:maca-vllm-latest -f maca.Dockerfile .
+    ```
 
-使用--no-deps，去除对一些cuda版本包的依赖，后续采用pip install-r requirements.txt 安装其他依赖
-```bash
-pip install -U "mineru[core]" --no-deps
-```
-
-```tex
-boto3>=1.28.43
-click>=8.1.7
-loguru>=0.7.2
-numpy==1.26.4
-pdfminer.six==20250506
-tqdm>=4.67.1
-requests
-httpx
-pillow>=11.0.0
-pypdfium2>=4.30.0
-pypdf>=5.6.0
-reportlab
-pdftext>=0.6.2
-modelscope>=1.26.0
-huggingface-hub>=0.32.4
-json-repair>=0.46.2
-opencv-python>=4.11.0.86
-fast-langdetect>=0.2.3,<0.3.0
-transformers>=4.51.1
-accelerate>=1.5.1
-pydantic
-matplotlib>=3.10,<4
-ultralytics>=8.3.48,<9
-dill>=0.3.8,<1
-rapid_table>=1.0.5,<2.0.0
-PyYAML>=6.0.2,<7 
-ftfy>=6.3.1,<7
-openai>=1.70.0,<2
-shapely>=2.0.7,<3
-pyclipper>=1.3.0,<2
-omegaconf>=2.3.0,<3
-transformers>=4.49.0,!=4.51.0,<5.0.0
-fastapi
-python-multipart
-uvicorn
-gradio>=5.34,<6
-gradio-pdf>=0.0.22
-albumentations
-beautifulsoup4
-scikit-image==0.25.0
-outlines==0.1.11
-magika>=0.6.2,<0.7.0
-mineru-vl-utils>=0.1.6,<1
-```
-上述内容保存为requirments.txt,进行安装
-```bash
-pip install -r requirments.txt
-```
-安装doclayout_yolo，这里doclayout_yolo会依赖torch-cuda,使用--no-deps
-```bash
-pip install doclayout-yolo --no-deps
-```
-### 在线使用
-**基础使用命令为:mineru -p <input_path> -o <output_path> -b vlm-transformers**
-
-- `<input_path>`: Local PDF/image file or directory
-- `<output_path>`: Output directory
-- -b  --backend [pipeline|vlm-transformers|vlm-vllm-engine|vlm-http-client] (default:pipeline)<br/>
-
-其他详细使用命令可参考官方文档[Quick Usage - MinerU](https://opendatalab.github.io/MinerU/usage/quick_usage/#quick-model-source-configuration)
-
-### 离线使用
-
-**所用模型为本地模型，需要设置环境变量和config配置文件**<br/>
-#### 下载模型到本地
-通过mineru交互式命令行工具进行下载，下载完后会自动更新mineru.json配置文件
-```bash
-mineru-models-download
-```
-也可以在[HuggingFace](http://www.huggingface.co.)或[ModelScope](https://www.modelscope.cn/home)找到所需模型源（PDF-Extract-Kit-1.0和MinerU2.5-2509-1.2B）进行下载，
-下载完成后，创建mineru.json文件，按如下进行修改
-```json
-{
-    "models-dir": {
-        "pipeline": "/path/pdf-extract-kit-1.0/",
-        "vlm": "/path/MinerU2.5-2509-1.2B"
-    },
-    "config_version": "1.3.0"
-}
-```
-path为本地模型的存储路径，其中models-dir为本地模型的路径，pipeline代表backend为pipeline时，所需要的模型路径，vlm代表backend为vlm-开头，所需要的模型路径
-
-#### 修改环境变量
+  
+### 2.2 使用 Dockerfile 构建镜像 （lmdeploy）
 
 ```bash
-export MINERU_MODEL_SOURCE=local
-export MINERU_TOOLS_CONFIG_JSON=/path/mineru.json   //此环境变量为配置文件的路径
+wget https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/docker/china/maca.Dockerfile
+# 将基础镜像从 vllm 切换为 lmdeploy
+sed -i '3s/^/# /' maca.Dockerfile && sed -i '5,6s/^# //' maca.Dockerfile
+docker build --network=host -t mineru:maca-lmdeploy-latest -f maca.Dockerfile .
 ```
-修改完成后即可正常使用<br/>
+
+## 3. 启动 Docker 容器
+
+```bash
+docker run --ipc host \
+   --cap-add SYS_PTRACE \
+   --privileged=true \
+   --device=/dev/mem \
+   --device=/dev/dri \
+   --device=/dev/mxcd \
+   --device=/dev/infiniband \
+   --group-add video \
+   --network=host \
+   --shm-size '100gb' \
+   --ulimit memlock=-1 \
+   --security-opt seccomp=unconfined \
+   --security-opt apparmor=unconfined \
+   --name mineru_docker \
+   -v /datapool:/datapool \
+   -e MINERU_MODEL_SOURCE=local \
+   -e MINERU_LMDEPLOY_DEVICE=maca \
+   -it mineru:maca-vllm-latest \
+   /bin/bash
+```
+
+>[!TIP]
+> 请根据实际情况选择使用`vllm`或`lmdeploy`版本的镜像，如需使用lmdeploy，替换上述命令中的`mineru:maca-vllm-latest`为`mineru:maca-lmdeploy-latest`即可。
+
+执行该命令后，您将进入到Docker容器的交互式终端，您可以直接在容器内运行MinerU相关命令来使用MinerU的功能。
+您也可以直接通过替换`/bin/bash`为服务启动命令来启动MinerU服务，详细说明请参考[通过命令启动服务](https://opendatalab.github.io/MinerU/zh/usage/quick_usage/#apiwebuihttp-clientserver)。
+
+## 4. 注意事项
+
+不同环境下，MinerU对maca加速卡的支持情况如下表所示：
+
+<table border="1">
+  <thead>
+    <tr>
+      <th rowspan="2" colspan="2">使用场景</th>
+      <th colspan="2">容器环境</th>
+    </tr>
+    <tr>
+      <th>vllm</th>
+      <th>lmdeploy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="3">命令行工具(mineru)</td>
+      <td>pipeline</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-auto-engine</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-http-client</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td rowspan="3">fastapi服务(mineru-api)</td>
+      <td>pipeline</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-auto-engine</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-http-client</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td rowspan="3">gradio界面(mineru-gradio)</td>
+      <td>pipeline</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-auto-engine</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td>&lt;vlm/hybrid&gt;-http-client</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+    <tr>
+      <td colspan="2">openai-server服务（mineru-openai-server）</td>
+      <td>🟢</td>
+      <td>🟢</td>
+    </tr>
+  </tbody>
+</table>
+  
+注：  
+🟢: 支持，运行较稳定，精度与Nvidia GPU基本一致  
+🟡: 支持但较不稳定，在某些场景下可能出现异常，或精度存在一定差异  
+🔴: 不支持，无法运行，或精度存在较大差异  
+
+>[!TIP]
+> - MACA加速卡指定可用加速卡的方式与NVIDIA GPU类似，请参考[使用指定GPU设备](https://opendatalab.github.io/MinerU/zh/usage/advanced_cli_parameters/#cuda_visible_devices)章节说明。
+> - 在METAX平台可以通过`mx-smi`命令查看加速卡的使用情况，并根据需要指定空闲的加速卡ID以避免资源冲突。

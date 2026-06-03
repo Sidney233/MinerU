@@ -1,5 +1,7 @@
-# 快速开始
+# 快速入门
 
+文档解析是困难且复杂的任务，尤其是对于复杂版面、扫描件、手写体等场景，解析结果可能不尽如人意。我们建议您先在线体验评估 MinerU 的解析效果和适用性，再根据实际需求选择合适的部署方式。
+如果您有解析效果不佳的**文档**样例，欢迎提交上传到 [issue](https://github.com/opendatalab/MinerU/issues)，我们会持续优化解析能力。
 如果遇到任何安装问题，请先查询 [FAQ](../faq/index.md) 
 
 ## 在线体验
@@ -27,41 +29,82 @@
 > 在非主线环境中，由于硬件、软件配置的多样性，以及第三方依赖项的兼容性问题，我们无法100%保证项目的完全可用性。因此，对于希望在非推荐环境中使用本项目的用户，我们建议先仔细阅读文档以及FAQ，大多数问题已经在FAQ中有对应的解决方案，除此之外我们鼓励社区反馈问题，以便我们能够逐步扩大支持范围。
 
 <table border="1">
+  <thead>
     <tr>
-        <td>解析后端</td>
-        <td>pipeline</td>
-        <td>vlm-transformers</td>
-        <td>vlm-vllm</td>
+      <th rowspan="2" style="text-align:center; vertical-align:middle;">解析后端</th>
+      <th rowspan="2" style="text-align:center; vertical-align:middle;">pipeline</th>
+      <th colspan="2" style="text-align:center;">*-auto-engine</th>
+      <th colspan="2" style="text-align:center;">*-http-client</th>
     </tr>
     <tr>
-        <td>操作系统</td>
-        <td>Linux / Windows / macOS</td>
-        <td>Linux / Windows</td>
-        <td>Linux / Windows (via WSL2)</td>
+      <th>hybrid</th>
+      <th>vlm</th>
+      <th>hybrid</th>
+      <th>vlm</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>后端特性</th>
+      <td style="text-align:center;">兼容性好</td>
+      <td colspan="2" style="text-align:center;">硬件配置要求较高</td>
+      <td colspan="2" style="text-align:center;">适用于OpenAI兼容服务器<sup>2</sup></td>
+    </tr> 
+    <tr>
+      <th>精度指标<sup>1</sup></th>
+      <td style="text-align:center;">85+</td>
+      <td colspan="4" style="text-align:center;">95+</td>
     </tr>
     <tr>
-        <td>CPU推理支持</td>
-        <td>✅</td>
-        <td colspan="2">❌</td>
+      <th>操作系统</th>
+      <td colspan="5" style="text-align:center;">Linux<sup>3</sup> / Windows<sup>4</sup> / macOS<sup>5</sup></td>
     </tr>
     <tr>
-        <td>GPU要求</td>
-        <td>Turing及以后架构，6G显存以上或Apple Silicon</td>
-        <td colspan="2">Turing及以后架构，8G显存以上</td>
+      <th>纯CPU平台支持</th>
+      <td style="text-align:center;">✅</td>
+      <td colspan="2" style="text-align:center;">❌</td>
+      <td colspan="2" style="text-align:center;">✅</td>
+    </tr>
+        <tr>
+      <th>GPU加速支持</th>
+      <td colspan="4" style="text-align:center;">Volta及以后架构GPU或Apple Silicon</td>
+      <td rowspan="2" style="text-align:center; vertical-align:middle;">不需要</td>
     </tr>
     <tr>
-        <td>内存要求</td>
-        <td colspan="3">最低16G以上，推荐32G以上</td>
+      <th>显存最低要求</th>
+      <td style="text-align:center;">4GB</td>
+      <td style="text-align:center;">8GB</td>
+      <td style="text-align:center;">8GB</td>
+      <td style="text-align:center;">2GB</td>
     </tr>
     <tr>
-        <td>磁盘空间要求</td>
-        <td colspan="3">20G以上，推荐使用SSD</td>
+      <th>内存要求</th>
+      <td colspan="3" style="text-align:center;">最低16GB以上,推荐32GB以上</td>
+      <td colspan="2" style="text-align:center;">16GB</td>
     </tr>
     <tr>
-        <td>python版本</td>
-        <td colspan="3">3.10-3.13</td>
+      <th>磁盘空间要求</th>
+      <td colspan="3" style="text-align:center;">20GB以上,推荐使用SSD</td>
+      <td colspan="2" style="text-align:center;">2GB</td>
     </tr>
+    <tr>
+      <th>python版本</th>
+      <td colspan="5" style="text-align:center;">3.10-3.13</td>
+    </tr>
+  </tbody>
 </table>
+
+<sup>1</sup> 精度指标为OmniDocBench (v1.6)的End-to-End Evaluation Overall分数，基于`MinerU`最新版本测试  
+<sup>2</sup> 兼容OpenAI API的服务器，如通过`vLLM`/`SGLang`/`LMDeploy`等推理框架部署的本地模型服务器或远程模型服务  
+<sup>3</sup> Linux仅支持2019年及以后发行版  
+<sup>4</sup> 由于关键依赖`ray`未能在windows平台支持Python 3.13，故仅支持至3.10~3.12版本  
+<sup>5</sup> macOS 需使用14.0以上版本  
+
+
+> [!TIP]
+> 除以上主流环境与平台外，我们也收录了一些社区用户反馈的其他平台支持情况，详情请参考[其他加速卡适配](https://opendatalab.github.io/MinerU/zh/usage/)。  
+> 如果您有意将自己的环境适配经验分享给社区，欢迎通过[show-and-tell](https://github.com/opendatalab/MinerU/discussions/categories/show-and-tell)提交或提交PR至[其他加速卡适配](https://github.com/opendatalab/MinerU/tree/master/docs/zh/usage/acceleration_cards)文档。
+
 
 ### 安装 MinerU
 
@@ -69,33 +112,51 @@
 ```bash
 pip install --upgrade pip -i https://mirrors.aliyun.com/pypi/simple
 pip install uv -i https://mirrors.aliyun.com/pypi/simple
-uv pip install -U "mineru[core]" -i https://mirrors.aliyun.com/pypi/simple 
+uv pip install -U "mineru[all]" -i https://mirrors.aliyun.com/pypi/simple 
 ```
 
 #### 通过源码安装MinerU
 ```bash
 git clone https://github.com/opendatalab/MinerU.git
 cd MinerU
-uv pip install -e .[core] -i https://mirrors.aliyun.com/pypi/simple
+uv pip install -e .[all] -i https://mirrors.aliyun.com/pypi/simple
 ```
 
 > [!TIP]
-> `mineru[core]`包含除`vllm`加速外的所有核心功能，兼容Windows / Linux / macOS系统，适合绝大多数用户。
-> 如果您有使用`vllm`加速VLM模型推理，或是在边缘设备安装轻量版client端等需求，可以参考文档[扩展模块安装指南](./extension_modules.md)。
+> - `mineru[all]`包含所有核心功能，兼容Windows / Linux / macOS系统，适合绝大多数用户。
+> - 如果您在 Windows 上安装后无法使用 CUDA 加速，请参考 [Windows CUDA 加速 FAQ](../faq/index.md#windows-cuda-acceleration)。
+> - 如果您需要指定vlm模型的推理框架，或是仅准备在边缘设备安装轻量版client端，可以参考文档[扩展模块安装指南](https://opendatalab.github.io/MinerU/zh/quick_start/extension_modules/)。
 
 ---
  
 #### 使用docker部署Mineru
 MinerU提供了便捷的docker部署方式，这有助于快速搭建环境并解决一些棘手的环境兼容问题。
+
+> [!TIP]
+> - Docker 部署仅适用于 Linux，以及支持 WSL2 的 Windows 环境；
+> - macOS 用户请直接参考前面两种方式部署安装，不要使用 Docker 部署。
+
 您可以在文档中获取[Docker部署说明](./docker_deployment.md)。
 
 ---
 
 ### 使用 MinerU
 
-最简单的命令行调用方式:
+>[!TIP]
+>默认使用托管在`huggingface`的模型进行解析，首次使用时会自动下载所需模型文件，后续使用将直接加载本地缓存的模型。如果您无法访问`huggingface`，可以通过以下命令切换至国内镜像源:
+>```bash
+>export MINERU_MODEL_SOURCE=modelscope
+>```
+
+如果您的设备满足上表中GPU加速的条件，可以使用简单的命令行进行文档解析:
 ```bash
 mineru -p <input_path> -o <output_path>
 ```
+如果您的设备不满足GPU加速条件，可以指定后端为`pipeline`，以在纯CPU环境下运行:
+```bash
+mineru -p <input_path> -o <output_path> -b pipeline
+```
 
-您可以通过命令行、API、WebUI等多种方式使用MinerU进行PDF解析，具体使用方法请参考[使用指南](../usage/index.md)。
+当前 `mineru` 支持本地 `PDF / 图片 / DOCX / PPTX / XLSX` 文件或目录输入。
+
+您可以通过命令行、API、WebUI 等多种方式使用 MinerU 进行文档解析，具体使用方法请参考[使用指南](../usage/index.md)。
