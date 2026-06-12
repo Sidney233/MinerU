@@ -2,36 +2,38 @@
 import base64
 import html
 import re
+from collections import defaultdict
 
 import cv2
+import numpy as np
 from loguru import logger
 from tqdm import tqdm
-from collections import defaultdict
-import numpy as np
 
-from .model_init import (
-    AtomModelSingleton,
-    run_layout_inference,
-    run_mfr_inference,
-    run_ocr_det_inference,
-    run_ocr_rec_inference,
-)
-from .model_list import AtomicModel
+from ...utils.bbox_utils import normalize_to_int_bbox
 from ...utils.config_reader import (
     get_formula_enable,
     get_ocr_det_mask_inline_formula_enable,
     get_table_enable,
 )
-from ...utils.bbox_utils import normalize_to_int_bbox
-from ...utils.model_utils import crop_img, get_res_list_from_layout_res, clean_vram
-from ...utils.ocr_utils import merge_det_boxes, update_det_boxes, sorted_boxes
+from ...utils.model_utils import clean_vram, crop_img, get_res_list_from_layout_res
 from ...utils.ocr_utils import (
+    OcrConfidence,
     get_adjusted_mfdetrec_res,
     get_ocr_result_list,
-    OcrConfidence,
     get_rotate_crop_image_for_text_rec,
+    mask_formula_regions_for_ocr_det,
+    merge_det_boxes,
+    sorted_boxes,
+    update_det_boxes,
 )
 from ...utils.pdf_image_tools import get_crop_np_img
+from .model_init import (
+    AtomModelSingleton,
+    run_layout_inference,
+    run_mfr_inference,
+    run_ocr_inference,
+)
+from .model_list import AtomicModel
 
 LAYOUT_BASE_BATCH_SIZE = 1
 MFR_BASE_BATCH_SIZE = 16
@@ -79,24 +81,7 @@ class BatchAnalyze:
         bgr_image: np.ndarray,
         mask_boxes: list[dict] | None,
     ) -> np.ndarray:
-        if not mask_boxes:
-            return bgr_image
-
-        masked_image = bgr_image.copy()
-        image_h, image_w = masked_image.shape[:2]
-        for mask_box in mask_boxes:
-            bbox = mask_box.get("bbox")
-            if bbox is None:
-                continue
-
-            int_bbox = normalize_to_int_bbox(bbox, image_size=(image_h, image_w))
-            if int_bbox is None:
-                continue
-
-            x0, y0, x1, y1 = int_bbox
-            masked_image[y0:y1, x0:x1] = 255
-
-        return masked_image
+        return mask_formula_regions_for_ocr_det(bgr_image, mask_boxes)
 
     def _get_masked_det_image(
         self,
@@ -409,8 +394,6 @@ class BatchAnalyze:
                 # 移除所有的"inline_formula"
                 layout_res[:] = [res for res in layout_res if res.get("label") != "inline_formula"]
 
-
-
         ocr_res_list_all_page = []
         table_res_list_all_page = []
         for index in range(len(np_images)):
@@ -475,6 +458,7 @@ class BatchAnalyze:
                     rotate_labels = table_orientation_cls_model.batch_predict(
                         table_res_list_all_page,
                         det_batch_size=self.batch_ratio * OCR_DET_BASE_BATCH_SIZE,
+                        tqdm_enable=True,
                     )
                     if len(rotate_labels) != len(table_res_list_all_page):
                         raise ValueError(
@@ -534,7 +518,7 @@ class BatchAnalyze:
                     if inline_mask_boxes
                     else bgr_image
                 )
-                ocr_result = run_ocr_det_inference(
+                ocr_result = run_ocr_inference(
                     det_ocr_engine.ocr, det_image, rec=False
                 )[0]
                 if ocr_result and formula_mask_boxes:
@@ -565,7 +549,7 @@ class BatchAnalyze:
                     enable_merge_det_boxes=False,
                 )
                 cropped_img_list = [item["cropped_img"] for item in rec_img_list]
-                ocr_res_list = run_ocr_rec_inference(
+                ocr_res_list = run_ocr_inference(
                     ocr_engine.ocr,
                     cropped_img_list,
                     det=False,
@@ -731,7 +715,7 @@ class BatchAnalyze:
 
                     # 批处理检测
                     det_batch_size = min(len(batch_images), self.batch_ratio * OCR_DET_BASE_BATCH_SIZE)
-                    batch_results = run_ocr_det_inference(
+                    batch_results = run_ocr_inference(
                         ocr_model.text_detector.batch_predict, batch_images, det_batch_size
                     )
 
@@ -793,7 +777,7 @@ class BatchAnalyze:
                         bgr_image,
                         adjusted_mfdetrec_res,
                     )
-                    ocr_res = run_ocr_det_inference(
+                    ocr_res = run_ocr_inference(
                         ocr_model.ocr,
                         det_image,
                         mfd_res=adjusted_mfdetrec_res,
@@ -852,7 +836,7 @@ class BatchAnalyze:
                         atom_model_name=AtomicModel.OCR,
                         lang=lang
                     )
-                    ocr_res_list = run_ocr_rec_inference(
+                    ocr_res_list = run_ocr_inference(
                         ocr_model.ocr, img_crop_list, det=False, tqdm_enable=True
                     )[0]
 
@@ -923,7 +907,7 @@ class BatchAnalyze:
                 )
 
             seal_crop_bgr = cv2.cvtColor(seal_crop_rgb, cv2.COLOR_RGB2BGR)
-            seal_ocr_res = run_ocr_det_inference(
+            seal_ocr_res = run_ocr_inference(
                 seal_ocr_model.ocr, seal_crop_bgr, det=True, rec=True
             )[0]
             if not seal_ocr_res:
